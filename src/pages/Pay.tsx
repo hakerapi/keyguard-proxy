@@ -2,25 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import VideoBackground from "@/components/VideoBackground";
-import { ArrowLeft, Check, Copy, ExternalLink, Loader2, Upload, AlertTriangle, RefreshCw, Gem, DollarSign } from "lucide-react";
+import { ArrowLeft, Check, Copy, ExternalLink, Loader2, Upload, AlertTriangle, RefreshCw, DollarSign } from "lucide-react";
 
-const PLANS = {
-  paypal: [
-    { id: "day1", label: "1 Día", amount: 4, display: "$4 USD", desc: "Acceso 24 horas" },
-    { id: "day7", label: "7 Días", amount: 7, display: "$7 USD", desc: "Acceso semanal" },
-    { id: "day30", label: "30 Días", amount: 15, display: "$15 USD", desc: "Acceso mensual" },
-  ],
-  diamonds: [
-    { id: "day1", label: "1 Día", amount: 500, display: "500 Diamantes", desc: "Acceso 24 horas" },
-    { id: "day7", label: "7 Días", amount: 800, display: "800 Diamantes", desc: "Acceso semanal" },
-    { id: "day30", label: "30 Días", amount: 1500, display: "1500 Diamantes", desc: "Acceso mensual" },
-  ],
-};
+const PLANS = [
+  { id: "day1", label: "1 Día", amount: 4, display: "$4 USD", desc: "Acceso 24 horas" },
+  { id: "day7", label: "7 Días", amount: 7, display: "$7 USD", desc: "Acceso semanal" },
+  { id: "day30", label: "30 Días", amount: 15, display: "$15 USD", desc: "Acceso mensual" },
+];
 
 const STORAGE_KEY = "hg_pay_token";
-const RECHARGE_URL = "https://shop.garena.sg/?app=100067";
-
-type Method = "paypal" | "diamonds";
+const PAYPAL_EMAIL = "davidsonpopiler609@gmail.com";
 
 type Order = {
   payment_id: string;
@@ -29,19 +20,16 @@ type Order = {
   duration: string;
   amount: number;
   amount_display?: string;
-  payment_method?: Method;
   status: "AWAITING_RECEIPT" | "PENDING" | "APPROVED" | "REJECTED";
   receipt_url?: string | null;
   assigned_key?: string | null;
   rejection_reason?: string | null;
-  paypal_url?: string;
-  diamonds_info?: { ff_id: string; account: string; region: string; amount: number };
+  paypal_email?: string;
 };
 
 const Pay = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"method" | "select" | "form" | "pay" | "upload" | "status">("method");
-  const [method, setMethod] = useState<Method>("paypal");
+  const [step, setStep] = useState<"select" | "form" | "pay" | "upload" | "status">("select");
   const [plan, setPlan] = useState<any>(null);
   const [alias, setAlias] = useState("");
   const [email, setEmail] = useState("");
@@ -50,6 +38,7 @@ const Pay = () => {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<number | null>(null);
 
@@ -83,7 +72,7 @@ const Pay = () => {
     if (!alias.trim() || alias.trim().length < 2) { setError("Ingresa tu nombre o alias"); return; }
     setLoading(true);
     const { data, error: err } = await supabase.functions.invoke("payment-create", {
-      body: { plan: plan.id, alias, email, payment_method: method },
+      body: { plan: plan.id, alias, email, payment_method: "paypal" },
     });
     setLoading(false);
     if (err || data?.error) { setError(data?.error || err?.message || "Error"); return; }
@@ -124,16 +113,16 @@ const Pay = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-  const copyText = async (t: string) => {
+  const copyText = async (t: string, field = "") => {
     await navigator.clipboard.writeText(t);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(""), 1500);
   };
 
   const newOrder = () => {
     localStorage.removeItem(STORAGE_KEY);
     setOrder(null); setPlan(null); setAlias(""); setEmail("");
-    setStep("method"); setError("");
+    setStep("select"); setError("");
   };
 
   const StatusBadge = ({ s }: { s: string }) => {
@@ -146,8 +135,6 @@ const Pay = () => {
     return <span className={`text-[10px] px-2 py-0.5 rounded-full border ${map[s]}`}>{s}</span>;
   };
 
-  const plans = PLANS[method];
-
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-8">
       <VideoBackground />
@@ -159,45 +146,13 @@ const Pay = () => {
         <div className="glass-card p-5 glow-border">
           <h1 className="text-base font-bold text-foreground mb-1">Comprar Key</h1>
           <p className="text-[10px] text-muted-foreground/70 tracking-wider uppercase mb-4">
-            {method === "paypal" ? "PayPal" : "Diamantes Free Fire"} • Validación automática
+            PayPal • Validación automática
           </p>
-
-          {step === "method" && (
-            <div className="space-y-2">
-              <button
-                onClick={() => { setMethod("paypal"); setStep("select"); }}
-                className="w-full flex items-center gap-3 p-4 rounded-lg bg-gradient-to-br from-[#0070ba]/20 to-[#003087]/20 border border-[#0070ba]/40 hover:from-[#0070ba]/30 hover:to-[#003087]/30 active:scale-[0.99] transition-all"
-              >
-                <div className="w-10 h-10 rounded-lg bg-[#0070ba]/30 flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-[#79b8e0]" />
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-bold text-foreground">PayPal</div>
-                  <div className="text-[10px] text-muted-foreground/80">Pago en USD</div>
-                </div>
-              </button>
-              <button
-                onClick={() => { setMethod("diamonds"); setStep("select"); }}
-                className="w-full flex items-center gap-3 p-4 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-400/40 hover:from-cyan-500/30 hover:to-blue-600/30 active:scale-[0.99] transition-all"
-              >
-                <div className="w-10 h-10 rounded-lg bg-cyan-500/30 flex items-center justify-center">
-                  <Gem className="w-5 h-5 text-cyan-300" />
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-bold text-foreground">Diamantes Free Fire</div>
-                  <div className="text-[10px] text-muted-foreground/80">Recarga directa</div>
-                </div>
-              </button>
-            </div>
-          )}
 
           {step === "select" && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Selecciona plan</span>
-                <button onClick={() => setStep("method")} className="text-[10px] text-muted-foreground hover:text-foreground">Cambiar método</button>
-              </div>
-              {plans.map((p) => (
+              <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mb-1 block">Selecciona plan</span>
+              {PLANS.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => { setPlan(p); setStep("form"); }}
@@ -207,10 +162,7 @@ const Pay = () => {
                     <div className="text-sm font-semibold text-foreground">{p.label}</div>
                     <div className="text-[10px] text-muted-foreground/70">{p.desc}</div>
                   </div>
-                  <div className="text-sm font-bold text-foreground flex items-center gap-1">
-                    {method === "diamonds" && <Gem className="w-3.5 h-3.5 text-cyan-300" />}
-                    {p.display}
-                  </div>
+                  <div className="text-sm font-bold text-foreground">{p.display}</div>
                 </button>
               ))}
             </div>
@@ -223,10 +175,7 @@ const Pay = () => {
                   <div className="text-sm font-semibold">{plan.label}</div>
                   <div className="text-[10px] text-muted-foreground/70">{plan.desc}</div>
                 </div>
-                <div className="text-sm font-bold flex items-center gap-1">
-                  {method === "diamonds" && <Gem className="w-3.5 h-3.5 text-cyan-300" />}
-                  {plan.display}
-                </div>
+                <div className="text-sm font-bold">{plan.display}</div>
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mb-1 block">Nombre o alias</label>
@@ -248,20 +197,32 @@ const Pay = () => {
             </div>
           )}
 
-          {step === "pay" && order && method === "paypal" && (
+          {step === "pay" && order && (
             <div className="space-y-3">
               <div className="bg-secondary/40 border border-border/40 rounded-lg p-3">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Monto a pagar</div>
                 <div className="text-2xl font-bold text-foreground">${order.amount} USD</div>
-                <div className="text-[10px] text-muted-foreground/70 mt-1">a PayPal: ModifaxffLopez</div>
               </div>
-              <a
-                href={`https://www.paypal.me/ModifaxffLopez/${order.amount}`}
-                target="_blank" rel="noopener noreferrer"
-                className="w-full bg-[#0070ba] text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-              >
-                Pagar con PayPal <ExternalLink className="w-4 h-4" />
-              </a>
+
+              <div className="bg-gradient-to-br from-[#0070ba]/20 to-[#003087]/20 border border-[#0070ba]/40 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-[#79b8e0]" />
+                  <span className="text-[10px] text-[#79b8e0] uppercase tracking-wider">Enviar a PayPal</span>
+                </div>
+                <div className="bg-background/40 border border-border/40 rounded-md p-2 flex items-center justify-between gap-2">
+                  <code className="text-[12px] font-mono text-foreground break-all">{order.paypal_email || PAYPAL_EMAIL}</code>
+                  <button
+                    onClick={() => copyText(order.paypal_email || PAYPAL_EMAIL, "email")}
+                    className="text-[10px] bg-[#0070ba]/30 border border-[#0070ba]/40 px-2 py-1 rounded shrink-0"
+                  >
+                    {copiedField === "email" ? <Check className="w-3 h-3" /> : "Copiar"}
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground/80 leading-relaxed">
+                  Abre PayPal, envía <b>${order.amount} USD</b> a este correo y luego sube el comprobante.
+                </p>
+              </div>
+
               <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-amber-200/90 leading-relaxed">
@@ -270,55 +231,6 @@ const Pay = () => {
               </div>
               <button onClick={() => setStep("upload")} className="w-full bg-foreground text-background font-semibold py-2.5 rounded-lg text-sm">
                 Ya pagué, subir comprobante
-              </button>
-              <div className="text-[9px] text-muted-foreground/50 text-center font-mono">ID: {order.payment_id}</div>
-            </div>
-          )}
-
-          {step === "pay" && order && method === "diamonds" && (
-            <div className="space-y-3">
-              <div className="bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-400/40 rounded-lg p-3">
-                <div className="text-[10px] text-cyan-200/80 uppercase tracking-wider mb-1">Enviar diamantes</div>
-                <div className="text-2xl font-bold text-foreground flex items-center gap-2">
-                  <Gem className="w-5 h-5 text-cyan-300" /> {order.amount}
-                </div>
-              </div>
-
-              <div className="bg-secondary/40 border border-border/40 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-[9px] text-muted-foreground uppercase tracking-wider">ID Free Fire</div>
-                    <div className="text-sm font-mono font-semibold">6929427211</div>
-                  </div>
-                  <button onClick={() => copyText("6929427211")} className="text-[10px] bg-secondary/60 border border-border/40 px-2 py-1 rounded">Copiar</button>
-                </div>
-                <div className="border-t border-border/30 pt-2">
-                  <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Cuenta</div>
-                  <div className="text-sm font-semibold">suessa 7p</div>
-                </div>
-                <div className="border-t border-border/30 pt-2">
-                  <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Región</div>
-                  <div className="text-sm font-semibold">Estados Unidos</div>
-                </div>
-              </div>
-
-              <a
-                href={RECHARGE_URL}
-                target="_blank" rel="noopener noreferrer"
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-3 rounded-lg text-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(34,211,238,0.4)]"
-              >
-                <Gem className="w-4 h-4" /> Ir a Recargar Diamantes <ExternalLink className="w-4 h-4" />
-              </a>
-
-              <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                  Comprobante claro y completo, sin recortes. Imagen o video (máx 30s).
-                </p>
-              </div>
-
-              <button onClick={() => setStep("upload")} className="w-full bg-foreground text-background font-semibold py-2.5 rounded-lg text-sm">
-                Ya envié, subir comprobante
               </button>
               <div className="text-[9px] text-muted-foreground/50 text-center font-mono">ID: {order.payment_id}</div>
             </div>

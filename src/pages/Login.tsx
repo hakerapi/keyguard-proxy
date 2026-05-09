@@ -162,6 +162,27 @@ const Login = () => {
             >
               <KeyRound className="w-4 h-4" /> Comprar Key
             </button>
+
+            <a
+              href="https://whatsapp.com/channel/0029VbC678PIyPtc7iERCH2R"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block mt-1 rounded-lg border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent backdrop-blur-sm px-3 py-2.5 hover:border-emerald-400/60 hover:from-emerald-500/15 active:scale-[0.99] transition-all"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex w-2 h-2">
+                    <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                    <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-400" />
+                  </span>
+                  <div className="leading-tight">
+                    <div className="text-[11px] font-semibold text-foreground tracking-wide">Canal Official</div>
+                    <div className="text-[9px] text-emerald-300/70 tracking-wider uppercase">WhatsApp · Únete</div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-300/80 group-hover:text-emerald-200 transition-colors">→</span>
+              </div>
+            </a>
           </form>
         </div>
 

@@ -128,6 +128,15 @@ Deno.serve(async (req) => {
     if (oErr || !order) throw new Error("Pedido no encontrado");
     if (order.status === "APPROVED") throw new Error("Pedido ya aprobado");
 
+    // Anti-spam: blocked user check
+    const { data: blocked } = await supabase
+      .from("blocked_users").select("alias, reason").ilike("alias", order.alias).maybeSingle();
+    if (blocked) {
+      return new Response(JSON.stringify({
+        error: `Usuario bloqueado${blocked.reason ? `: ${blocked.reason}` : ""}`,
+      }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const isVideo = (mime || "").startsWith("video/");
     const ext = (mime || "image/jpeg").split("/")[1]?.split(";")[0] || (isVideo ? "mp4" : "jpg");
     const path = `${order.payment_id}-${Date.now()}.${ext}`;

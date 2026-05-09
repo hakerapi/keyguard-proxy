@@ -68,13 +68,16 @@ async function handleCommand(supabase: any, chat_id: number, text: string, admin
     case "/start":
     case "/help": {
       await reply(chat_id,
-        "<b>Hermanos Gamers - Admin Bot</b>\n\n" +
+        "<b>Mini boykaffx7 - Admin Bot</b>\n\n" +
         "/pendientes — pedidos en revisión\n" +
         "/ultimos — últimos 10 pedidos\n" +
         "/buscar HG-XXXX — buscar pedido\n" +
         "/reenviarkey HG-XXXX — reenviar key asignada\n" +
         "/aprobar HG-XXXX — aprobar y generar key\n" +
         "/rechazar HG-XXXX [motivo] — rechazar pedido\n" +
+        "/bloquear &lt;alias&gt; [motivo] — bloquear usuario (anti spam)\n" +
+        "/desbloquear &lt;alias&gt; — desbloquear usuario\n" +
+        "/bloqueados — lista de bloqueados\n" +
         "/stats — estadísticas\n" +
         "/keys — keys activas disponibles\n" +
         "/logs HG-XXXX — logs de un pedido\n" +

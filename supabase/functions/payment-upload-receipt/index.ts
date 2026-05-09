@@ -67,23 +67,24 @@ async function sendTelegramWithRetry(supabase: any, order: any, mediaUrl: string
     return null;
   }
 
-  const method = order.payment_method === "diamonds" ? "Diamantes Free Fire" : "PayPal";
   const caption =
     `<b>Nuevo comprobante</b>\n` +
     `ID: <code>${order.payment_id}</code>\n` +
     `Usuario: ${order.alias}${order.email ? ` (${order.email})` : ""}\n` +
     `Plan: ${order.duration}\n` +
-    `Método: ${method}\n` +
+    `Método: PayPal\n` +
     `Monto: ${order.amount_display || order.amount}\n` +
     `Fecha: ${new Date().toLocaleString("es-ES")}\n` +
     `IA: ${aiReason}`;
 
   const reply_markup = {
     inline_keyboard: [[
-      { text: "Aprobar", callback_data: `approve:${order.payment_id}` },
-      { text: "Rechazar", callback_data: `reject:${order.payment_id}` },
+      { text: "✅ Aprobar", callback_data: `approve:${order.payment_id}` },
+      { text: "❌ Rechazar", callback_data: `reject:${order.payment_id}` },
     ], [
-      { text: "Ver info", callback_data: `info:${order.payment_id}` },
+      { text: "🚫 Bloquear Usuario", callback_data: `block:${order.payment_id}` },
+    ], [
+      { text: "ℹ️ Ver info", callback_data: `info:${order.payment_id}` },
     ]],
   };
 
@@ -127,6 +128,15 @@ Deno.serve(async (req) => {
       .from("payment_orders").select("*").eq("tracking_token", tracking_token).single();
     if (oErr || !order) throw new Error("Pedido no encontrado");
     if (order.status === "APPROVED") throw new Error("Pedido ya aprobado");
+
+    // Anti-spam: blocked user check
+    const { data: blocked } = await supabase
+      .from("blocked_users").select("alias, reason").ilike("alias", order.alias).maybeSingle();
+    if (blocked) {
+      return new Response(JSON.stringify({
+        error: `Usuario bloqueado${blocked.reason ? `: ${blocked.reason}` : ""}`,
+      }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const isVideo = (mime || "").startsWith("video/");
     const ext = (mime || "image/jpeg").split("/")[1]?.split(";")[0] || (isVideo ? "mp4" : "jpg");

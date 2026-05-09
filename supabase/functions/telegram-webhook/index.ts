@@ -68,13 +68,16 @@ async function handleCommand(supabase: any, chat_id: number, text: string, admin
     case "/start":
     case "/help": {
       await reply(chat_id,
-        "<b>Hermanos Gamers - Admin Bot</b>\n\n" +
+        "<b>Mini boykaffx7 - Admin Bot</b>\n\n" +
         "/pendientes — pedidos en revisión\n" +
         "/ultimos — últimos 10 pedidos\n" +
         "/buscar HG-XXXX — buscar pedido\n" +
         "/reenviarkey HG-XXXX — reenviar key asignada\n" +
         "/aprobar HG-XXXX — aprobar y generar key\n" +
         "/rechazar HG-XXXX [motivo] — rechazar pedido\n" +
+        "/bloquear &lt;alias&gt; [motivo] — bloquear usuario (anti spam)\n" +
+        "/desbloquear &lt;alias&gt; — desbloquear usuario\n" +
+        "/bloqueados — lista de bloqueados\n" +
         "/stats — estadísticas\n" +
         "/keys — keys activas disponibles\n" +
         "/logs HG-XXXX — logs de un pedido\n" +
@@ -151,19 +154,41 @@ async function handleCommand(supabase: any, chat_id: number, text: string, admin
       await reply(chat_id, `Cancelado <code>${id}</code>`);
       return;
     }
+    case "/bloquear": {
+      const alias = args[0];
+      if (!alias) { await reply(chat_id, "Uso: /bloquear &lt;alias&gt; [motivo]"); return; }
+      const reason = args.slice(1).join(" ") || "Spam";
+      const { error } = await supabase.from("blocked_users").upsert({ alias, reason }, { onConflict: "alias" });
+      if (error) { await reply(chat_id, `Error: ${error.message}`); return; }
+      await reply(chat_id, `🚫 Usuario <b>${alias}</b> bloqueado.\nMotivo: ${reason}`);
+      return;
+    }
+    case "/desbloquear": {
+      const alias = args[0];
+      if (!alias) { await reply(chat_id, "Uso: /desbloquear &lt;alias&gt;"); return; }
+      const { error } = await supabase.from("blocked_users").delete().ilike("alias", alias);
+      if (error) { await reply(chat_id, `Error: ${error.message}`); return; }
+      await reply(chat_id, `✅ Usuario <b>${alias}</b> desbloqueado.`);
+      return;
+    }
+    case "/bloqueados": {
+      const { data } = await supabase.from("blocked_users").select("*").order("blocked_at", { ascending: false }).limit(30);
+      if (!data?.length) { await reply(chat_id, "Sin usuarios bloqueados."); return; }
+      const txt = data.map((b: any) => `• <code>${b.alias}</code> — ${b.reason || ""}`).join("\n");
+      await reply(chat_id, `<b>Bloqueados (${data.length})</b>\n${txt}`);
+      return;
+    }
     case "/stats": {
       const { data } = await supabase.from("payment_orders").select("status, amount, payment_method");
       const all = data || [];
       const by = (s: string) => all.filter((o: any) => o.status === s).length;
-      const totalUsd = all.filter((o: any) => o.status === "APPROVED" && o.payment_method === "paypal")
-        .reduce((s: number, o: any) => s + Number(o.amount), 0);
-      const totalDia = all.filter((o: any) => o.status === "APPROVED" && o.payment_method === "diamonds")
+      const totalUsd = all.filter((o: any) => o.status === "APPROVED")
         .reduce((s: number, o: any) => s + Number(o.amount), 0);
       await reply(chat_id,
         `<b>Estadísticas</b>\n` +
         `Aprobados: ${by("APPROVED")}\nPendientes: ${by("PENDING")}\n` +
         `Rechazados: ${by("REJECTED")}\nEsperando: ${by("AWAITING_RECEIPT")}\n` +
-        `Total: ${all.length}\n\nIngresos PayPal: $${totalUsd}\nDiamantes: ${totalDia}`);
+        `Total: ${all.length}\n\nIngresos PayPal: $${totalUsd}`);
       return;
     }
     case "/keys": {
@@ -256,6 +281,17 @@ Deno.serve(async (req) => {
       await editCaption(chat_id, message_id,
         `<b>RECHAZADO</b>\nID: <code>${order.payment_id}</code>\nUsuario: ${order.alias}`);
       await ack(cb.id, "Rechazado");
+    } else if (action === "block") {
+      await supabase.from("blocked_users").upsert({
+        alias: order.alias, email: order.email, reason: "Spam (bloqueado desde Telegram)",
+      }, { onConflict: "alias" });
+      await supabase.from("payment_orders").update({
+        status: "REJECTED", rejection_reason: "Usuario bloqueado por spam",
+      }).eq("id", order.id);
+      await editCaption(chat_id, message_id,
+        `<b>🚫 USUARIO BLOQUEADO</b>\nID: <code>${order.payment_id}</code>\nUsuario: ${order.alias}\nMotivo: Spam`);
+      await ack(cb.id, "Usuario bloqueado");
+      await reply(chat_id, `🚫 <b>${order.alias}</b> bloqueado.\nNo podrá crear más pedidos ni subir comprobantes.\nPara desbloquear: /desbloquear ${order.alias}`);
     } else if (action === "info") {
       await ack(cb.id,
         `${order.alias} · ${order.duration} · ${order.amount_display || order.amount} · ${order.email || "sin email"}`);

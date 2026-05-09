@@ -5,15 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PAYPAL_EMAIL = "davidsonpopiler609@gmail.com";
+
 const PLANS_PAYPAL: Record<string, { duration: string; amount: number; display: string }> = {
   day1: { duration: "1 día", amount: 4, display: "$4 USD" },
   day7: { duration: "7 días", amount: 7, display: "$7 USD" },
   day30: { duration: "30 días", amount: 15, display: "$15 USD" },
-};
-const PLANS_DIAMONDS: Record<string, { duration: string; amount: number; display: string }> = {
-  day1: { duration: "1 día", amount: 500, display: "500 Diamantes" },
-  day7: { duration: "7 días", amount: 800, display: "800 Diamantes" },
-  day30: { duration: "30 días", amount: 1500, display: "1500 Diamantes" },
 };
 
 function rand(len: number) {
@@ -26,17 +23,29 @@ function rand(len: number) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { plan, alias, email, payment_method } = await req.json();
-    const method = payment_method === "diamonds" ? "diamonds" : "paypal";
-    const table = method === "diamonds" ? PLANS_DIAMONDS : PLANS_PAYPAL;
-    const p = table[plan];
+    const { plan, alias, email } = await req.json();
+    const p = PLANS_PAYPAL[plan];
     if (!p) throw new Error("Plan inválido");
     if (!alias || typeof alias !== "string" || alias.trim().length < 2) throw new Error("Alias requerido");
+
+    const cleanAlias = alias.trim().slice(0, 60);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Anti-spam: blocked user check
+    const { data: blocked } = await supabase
+      .from("blocked_users")
+      .select("alias, reason")
+      .ilike("alias", cleanAlias)
+      .maybeSingle();
+    if (blocked) {
+      return new Response(JSON.stringify({
+        error: `Usuario bloqueado${blocked.reason ? `: ${blocked.reason}` : ""}`,
+      }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const payment_id = `HG-${rand(8)}`;
     const tracking_token = `${rand(6)}-${rand(6)}-${rand(6)}-${rand(6)}`;
@@ -44,13 +53,13 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase.from("payment_orders").insert({
       payment_id,
       tracking_token,
-      alias: alias.trim().slice(0, 60),
+      alias: cleanAlias,
       email: email?.trim().slice(0, 120) || null,
       plan,
       duration: p.duration,
       amount: p.amount,
       amount_display: p.display,
-      payment_method: method,
+      payment_method: "paypal",
       status: "AWAITING_RECEIPT",
     }).select().single();
 
@@ -58,7 +67,7 @@ Deno.serve(async (req) => {
 
     await supabase.from("payment_logs").insert({
       payment_id, event: "order_created",
-      detail: { plan, method, amount: p.amount, alias: data.alias },
+      detail: { plan, method: "paypal", amount: p.amount, alias: data.alias },
     });
 
     return new Response(JSON.stringify({
@@ -67,14 +76,8 @@ Deno.serve(async (req) => {
       amount: data.amount,
       amount_display: p.display,
       duration: data.duration,
-      payment_method: method,
-      paypal_url: method === "paypal" ? `https://www.paypal.me/ModifaxffLopez/${data.amount}` : null,
-      diamonds_info: method === "diamonds" ? {
-        ff_id: "6929427211",
-        account: "suessa 7p",
-        region: "Estados Unidos",
-        amount: p.amount,
-      } : null,
+      payment_method: "paypal",
+      paypal_email: PAYPAL_EMAIL,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error" }), {

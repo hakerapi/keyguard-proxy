@@ -30,16 +30,31 @@ function genKey(): string {
 
 async function generateKeyForOrder(supabase: any, order: any): Promise<string> {
   const durationMs = DURATION_MS[order.duration] || 0;
-  const key = genKey();
-  await supabase.from("proxy_keys").insert({
-    key, type: "Normal", status: "Activa",
-    duration: order.duration, duration_ms: durationMs,
-    created_at: new Date().toISOString(),
-  });
-  await supabase.from("payment_logs").insert({
-    payment_id: order.payment_id, event: "key_generated", detail: { key, by: "telegram_admin" },
-  });
-  return key;
+  if (!durationMs) throw new Error(`Duración inválida: ${order.duration}`);
+
+  // Try a few times in the unlikely case of key collision
+  let lastErr: any = null;
+  for (let i = 0; i < 5; i++) {
+    const key = genKey();
+    const { error } = await supabase.from("proxy_keys").insert({
+      key,
+      type: "Normal",
+      status: "Activa",
+      duration: order.duration,
+      duration_ms: durationMs,
+      created_at: new Date().toISOString(),
+    });
+    if (!error) {
+      await supabase.from("payment_logs").insert({
+        payment_id: order.payment_id,
+        event: "key_generated",
+        detail: { key, by: "telegram_admin", duration: order.duration, duration_ms: durationMs },
+      });
+      return key;
+    }
+    lastErr = error;
+  }
+  throw new Error(`No se pudo generar key: ${lastErr?.message || "error desconocido"}`);
 }
 
 async function handleCommand(supabase: any, chat_id: number, text: string, adminId: string) {
@@ -212,12 +227,30 @@ Deno.serve(async (req) => {
     if (!order) { await ack(cb.id, "No encontrado"); return new Response("ok", { headers: corsHeaders }); }
 
     if (action === "approve") {
-      if (order.status === "APPROVED") { await ack(cb.id, "Ya aprobado"); return new Response("ok", { headers: corsHeaders }); }
-      const key = await generateKeyForOrder(supabase, order);
-      await supabase.from("payment_orders").update({ status: "APPROVED", assigned_key: key, rejection_reason: null }).eq("id", order.id);
-      await editCaption(chat_id, message_id,
-        `<b>APROBADO</b>\nID: <code>${order.payment_id}</code>\nUsuario: ${order.alias}\nPlan: ${order.duration}\nKey: <code>${key}</code>`);
-      await ack(cb.id, "Aprobado");
+      if (order.status === "APPROVED" && order.assigned_key) {
+        await ack(cb.id, "Ya aprobado");
+        await reply(chat_id, `Ya aprobado. Key: <code>${order.assigned_key}</code>`);
+        return new Response("ok", { headers: corsHeaders });
+      }
+      try {
+        const key = await generateKeyForOrder(supabase, order);
+        const { error: upErr } = await supabase
+          .from("payment_orders")
+          .update({ status: "APPROVED", assigned_key: key, rejection_reason: null })
+          .eq("id", order.id);
+        if (upErr) throw upErr;
+        await editCaption(chat_id, message_id,
+          `<b>APROBADO</b>\nID: <code>${order.payment_id}</code>\nUsuario: ${order.alias}\nPlan: ${order.duration}\nKey: <code>${key}</code>`);
+        await ack(cb.id, "Aprobado");
+        await reply(chat_id, `Aprobado <code>${order.payment_id}</code>\nKey: <code>${key}</code>\nPlan: ${order.duration}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        await supabase.from("payment_logs").insert({
+          payment_id: order.payment_id, event: "approve_failed", detail: { error: msg },
+        });
+        await ack(cb.id, "Error al aprobar");
+        await reply(chat_id, `Error aprobando <code>${order.payment_id}</code>: ${msg}`);
+      }
     } else if (action === "reject") {
       await supabase.from("payment_orders").update({ status: "REJECTED", rejection_reason: "Rechazado por administrador" }).eq("id", order.id);
       await editCaption(chat_id, message_id,

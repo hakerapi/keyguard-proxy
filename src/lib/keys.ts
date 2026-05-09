@@ -178,7 +178,13 @@ export async function generateKeys(count: number, type: ProxyKey['type'], durati
 
 export async function validateKey(inputKey: string): Promise<ProxyKey | null> {
   const clean = inputKey.trim().toUpperCase();
-  const { data } = await supabase.from('proxy_keys').select('*').ilike('key', clean).eq('status', 'Activa').single();
+  if (!clean) return null;
+  const { data } = await supabase
+    .from('proxy_keys')
+    .select('*')
+    .ilike('key', clean)
+    .eq('status', 'Activa')
+    .maybeSingle();
   if (!data) return null;
   return rowToKey(data);
 }

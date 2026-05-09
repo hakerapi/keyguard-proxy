@@ -227,12 +227,30 @@ Deno.serve(async (req) => {
     if (!order) { await ack(cb.id, "No encontrado"); return new Response("ok", { headers: corsHeaders }); }
 
     if (action === "approve") {
-      if (order.status === "APPROVED") { await ack(cb.id, "Ya aprobado"); return new Response("ok", { headers: corsHeaders }); }
-      const key = await generateKeyForOrder(supabase, order);
-      await supabase.from("payment_orders").update({ status: "APPROVED", assigned_key: key, rejection_reason: null }).eq("id", order.id);
-      await editCaption(chat_id, message_id,
-        `<b>APROBADO</b>\nID: <code>${order.payment_id}</code>\nUsuario: ${order.alias}\nPlan: ${order.duration}\nKey: <code>${key}</code>`);
-      await ack(cb.id, "Aprobado");
+      if (order.status === "APPROVED" && order.assigned_key) {
+        await ack(cb.id, "Ya aprobado");
+        await reply(chat_id, `Ya aprobado. Key: <code>${order.assigned_key}</code>`);
+        return new Response("ok", { headers: corsHeaders });
+      }
+      try {
+        const key = await generateKeyForOrder(supabase, order);
+        const { error: upErr } = await supabase
+          .from("payment_orders")
+          .update({ status: "APPROVED", assigned_key: key, rejection_reason: null })
+          .eq("id", order.id);
+        if (upErr) throw upErr;
+        await editCaption(chat_id, message_id,
+          `<b>APROBADO</b>\nID: <code>${order.payment_id}</code>\nUsuario: ${order.alias}\nPlan: ${order.duration}\nKey: <code>${key}</code>`);
+        await ack(cb.id, "Aprobado");
+        await reply(chat_id, `Aprobado <code>${order.payment_id}</code>\nKey: <code>${key}</code>\nPlan: ${order.duration}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        await supabase.from("payment_logs").insert({
+          payment_id: order.payment_id, event: "approve_failed", detail: { error: msg },
+        });
+        await ack(cb.id, "Error al aprobar");
+        await reply(chat_id, `Error aprobando <code>${order.payment_id}</code>: ${msg}`);
+      }
     } else if (action === "reject") {
       await supabase.from("payment_orders").update({ status: "REJECTED", rejection_reason: "Rechazado por administrador" }).eq("id", order.id);
       await editCaption(chat_id, message_id,

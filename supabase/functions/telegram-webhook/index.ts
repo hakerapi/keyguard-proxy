@@ -30,16 +30,31 @@ function genKey(): string {
 
 async function generateKeyForOrder(supabase: any, order: any): Promise<string> {
   const durationMs = DURATION_MS[order.duration] || 0;
-  const key = genKey();
-  await supabase.from("proxy_keys").insert({
-    key, type: "Normal", status: "Activa",
-    duration: order.duration, duration_ms: durationMs,
-    created_at: new Date().toISOString(),
-  });
-  await supabase.from("payment_logs").insert({
-    payment_id: order.payment_id, event: "key_generated", detail: { key, by: "telegram_admin" },
-  });
-  return key;
+  if (!durationMs) throw new Error(`Duración inválida: ${order.duration}`);
+
+  // Try a few times in the unlikely case of key collision
+  let lastErr: any = null;
+  for (let i = 0; i < 5; i++) {
+    const key = genKey();
+    const { error } = await supabase.from("proxy_keys").insert({
+      key,
+      type: "Normal",
+      status: "Activa",
+      duration: order.duration,
+      duration_ms: durationMs,
+      created_at: new Date().toISOString(),
+    });
+    if (!error) {
+      await supabase.from("payment_logs").insert({
+        payment_id: order.payment_id,
+        event: "key_generated",
+        detail: { key, by: "telegram_admin", duration: order.duration, duration_ms: durationMs },
+      });
+      return key;
+    }
+    lastErr = error;
+  }
+  throw new Error(`No se pudo generar key: ${lastErr?.message || "error desconocido"}`);
 }
 
 async function handleCommand(supabase: any, chat_id: number, text: string, adminId: string) {

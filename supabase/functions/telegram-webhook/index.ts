@@ -154,7 +154,30 @@ async function handleCommand(supabase: any, chat_id: number, text: string, admin
       await reply(chat_id, `Cancelado <code>${id}</code>`);
       return;
     }
-    case "/stats": {
+    case "/bloquear": {
+      const alias = args[0];
+      if (!alias) { await reply(chat_id, "Uso: /bloquear &lt;alias&gt; [motivo]"); return; }
+      const reason = args.slice(1).join(" ") || "Spam";
+      const { error } = await supabase.from("blocked_users").upsert({ alias, reason }, { onConflict: "alias" });
+      if (error) { await reply(chat_id, `Error: ${error.message}`); return; }
+      await reply(chat_id, `🚫 Usuario <b>${alias}</b> bloqueado.\nMotivo: ${reason}`);
+      return;
+    }
+    case "/desbloquear": {
+      const alias = args[0];
+      if (!alias) { await reply(chat_id, "Uso: /desbloquear &lt;alias&gt;"); return; }
+      const { error } = await supabase.from("blocked_users").delete().ilike("alias", alias);
+      if (error) { await reply(chat_id, `Error: ${error.message}`); return; }
+      await reply(chat_id, `✅ Usuario <b>${alias}</b> desbloqueado.`);
+      return;
+    }
+    case "/bloqueados": {
+      const { data } = await supabase.from("blocked_users").select("*").order("blocked_at", { ascending: false }).limit(30);
+      if (!data?.length) { await reply(chat_id, "Sin usuarios bloqueados."); return; }
+      const txt = data.map((b: any) => `• <code>${b.alias}</code> — ${b.reason || ""}`).join("\n");
+      await reply(chat_id, `<b>Bloqueados (${data.length})</b>\n${txt}`);
+      return;
+    }
       const { data } = await supabase.from("payment_orders").select("status, amount, payment_method");
       const all = data || [];
       const by = (s: string) => all.filter((o: any) => o.status === s).length;

@@ -44,6 +44,30 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_users: {
+        Row: {
+          alias: string
+          blocked_at: string
+          email: string | null
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          alias: string
+          blocked_at?: string
+          email?: string | null
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          alias?: string
+          blocked_at?: string
+          email?: string | null
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       payment_logs: {
         Row: {
           created_at: string

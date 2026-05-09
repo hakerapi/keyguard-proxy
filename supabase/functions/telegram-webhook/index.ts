@@ -178,18 +178,17 @@ async function handleCommand(supabase: any, chat_id: number, text: string, admin
       await reply(chat_id, `<b>Bloqueados (${data.length})</b>\n${txt}`);
       return;
     }
+    case "/stats": {
       const { data } = await supabase.from("payment_orders").select("status, amount, payment_method");
       const all = data || [];
       const by = (s: string) => all.filter((o: any) => o.status === s).length;
-      const totalUsd = all.filter((o: any) => o.status === "APPROVED" && o.payment_method === "paypal")
-        .reduce((s: number, o: any) => s + Number(o.amount), 0);
-      const totalDia = all.filter((o: any) => o.status === "APPROVED" && o.payment_method === "diamonds")
+      const totalUsd = all.filter((o: any) => o.status === "APPROVED")
         .reduce((s: number, o: any) => s + Number(o.amount), 0);
       await reply(chat_id,
         `<b>Estadísticas</b>\n` +
         `Aprobados: ${by("APPROVED")}\nPendientes: ${by("PENDING")}\n` +
         `Rechazados: ${by("REJECTED")}\nEsperando: ${by("AWAITING_RECEIPT")}\n` +
-        `Total: ${all.length}\n\nIngresos PayPal: $${totalUsd}\nDiamantes: ${totalDia}`);
+        `Total: ${all.length}\n\nIngresos PayPal: $${totalUsd}`);
       return;
     }
     case "/keys": {

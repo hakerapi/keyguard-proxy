@@ -74,13 +74,10 @@ const Login = () => {
               className="absolute inset-0 rounded-full animate-spin-slow"
               style={{
                 background: "conic-gradient(from 0deg, #3b82f6, #06b6d4, #8b5cf6, #3b82f6)",
-                padding: "3px",
               }}
-            >
-              <div className="w-full h-full rounded-full bg-background" />
-            </div>
+            />
             {/* Avatar image */}
-            <div className="absolute inset-[3px] rounded-full overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.06)]">
+            <div className="absolute inset-[4px] rounded-full overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.06)]">
               <img src={defaultAvatar} alt="Profile" className="w-full h-full object-cover" />
             </div>
           </div>

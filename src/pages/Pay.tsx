@@ -223,6 +223,15 @@ const Pay = () => {
                 </p>
               </div>
 
+              <a
+                href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(order.paypal_email || PAYPAL_EMAIL)}&amount=${order.amount}&currency_code=USD&item_name=${encodeURIComponent(`Key ${order.duration} - ${order.payment_id}`)}&no_shipping=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-[#0070ba] hover:bg-[#005ea6] text-white font-semibold py-3 rounded-lg text-sm transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" /> Pagar en PayPal
+              </a>
+
               <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-amber-200/90 leading-relaxed">

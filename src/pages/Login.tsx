@@ -73,7 +73,8 @@ const Login = () => {
             <div
               className="absolute inset-0 rounded-full animate-spin-slow"
               style={{
-                background: "conic-gradient(from 0deg, #3b82f6, #06b6d4, #8b5cf6, #3b82f6)",
+                background: "conic-gradient(from 0deg, #60a5fa, #22d3ee, #c084fc, #60a5fa)",
+                boxShadow: "0 0 12px rgba(34,211,238,0.4), 0 0 4px rgba(96,165,250,0.6)",
               }}
             />
             {/* Avatar image */}

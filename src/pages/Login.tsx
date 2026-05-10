@@ -68,8 +68,17 @@ const Login = () => {
       <div className="relative z-10 w-full max-w-sm animate-fade-in-up">
         {/* Avatar + Title */}
         <div className="flex flex-col items-center mb-6">
-          <div className="relative mb-3">
-            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border shadow-[0_0_40px_rgba(255,255,255,0.06)]">
+          <div className="relative mb-3 w-28 h-28">
+            {/* Story ring */}
+            <div
+              className="absolute inset-0 rounded-full animate-spin-slow"
+              style={{
+                background: "conic-gradient(from 0deg, #60a5fa, #22d3ee, #c084fc, #60a5fa)",
+                boxShadow: "0 0 12px rgba(34,211,238,0.4), 0 0 4px rgba(96,165,250,0.6)",
+              }}
+            />
+            {/* Avatar image */}
+            <div className="absolute inset-[5px] rounded-full overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.06)]">
               <img src={defaultAvatar} alt="Profile" className="w-full h-full object-cover" />
             </div>
           </div>

@@ -77,7 +77,7 @@ const Login = () => {
               }}
             />
             {/* Avatar image */}
-            <div className="absolute inset-[4px] rounded-full overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.06)]">
+            <div className="absolute inset-[5px] rounded-full overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.06)]">
               <img src={defaultAvatar} alt="Profile" className="w-full h-full object-cover" />
             </div>
           </div>
